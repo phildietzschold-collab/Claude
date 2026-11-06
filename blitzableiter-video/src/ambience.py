@@ -11,7 +11,9 @@ from pathlib import Path
 import numpy as np
 from scipy.signal import butter, sosfilt
 
-import render  # liefert FLASHES, DUR, CH
+import importlib
+import os
+render = importlib.import_module(os.environ.get("RENDER", "render"))  # render oder short; liefert FLASHES, DUR, CH
 
 SR = 48000
 N = int((render.DUR + 0.5) * SR)
@@ -101,7 +103,7 @@ for t0, k in sorted(render.FLASHES):
 mix = rain * 0.10 + thun * 0.55
 mix = np.tanh(mix * 1.2) / 1.2  # weiche Begrenzung
 pcm = (np.clip(mix.T, -1, 1) * 32767).astype(np.int16)
-with wave.open(str(ROOT / "build" / "atmo.wav"), "wb") as w:
+with wave.open(str(render.BUILD / "atmo.wav"), "wb") as w:
     w.setnchannels(2)
     w.setsampwidth(2)
     w.setframerate(SR)
@@ -157,7 +159,7 @@ music *= env_curve([(0, 0), (2.0, 1), (render.DUR - 4, 1), (render.DUR, 0)])
 # Soundeffekte (Pop beim Erscheinen, Whoosh beim Kapitelwechsel)
 import json
 sfx = np.zeros((2, N))
-for ev in json.load(open(ROOT / "build" / "sfx.json")):
+for ev in json.load(open(render.BUILD / "sfx.json")):
     s0 = int(ev["t"] * SR)
     if ev["type"] == "pop":
         L = int(0.12 * SR)
@@ -185,7 +187,7 @@ for ev in json.load(open(ROOT / "build" / "sfx.json")):
 
 def write(name, x):
     pcm = (np.clip(x.T, -1, 1) * 32767).astype(np.int16)
-    with wave.open(str(ROOT / "build" / name), "wb") as w:
+    with wave.open(str(render.BUILD / name), "wb") as w:
         w.setnchannels(2)
         w.setsampwidth(2)
         w.setframerate(SR)

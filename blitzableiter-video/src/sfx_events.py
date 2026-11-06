@@ -9,8 +9,13 @@ import sys
 
 import cairo
 
-import render
+import importlib
+import os
+
 import scenes
+
+render = importlib.import_module(os.environ.get("RENDER", "render"))
+scenes = getattr(render, "SCENE_MODULE", scenes)  # Modul, in dem die Szenen definiert sind
 
 events = []
 last = {}
@@ -29,9 +34,9 @@ def pop_rec(x):
 
 scenes.pop = pop_rec
 
-surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, 48, 27)
+surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, 48, 48)
 ctx = cairo.Context(surf)
-ctx.scale(48 / 1920, 27 / 1080)
+ctx.scale(48 / 1920, 48 / 1920)
 for f in range(render.NFRAMES):
     t = f / render.FPS
     state["t"] = t

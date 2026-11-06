@@ -15,19 +15,22 @@ import numpy as np
 import piper.phonemize_espeak as pe
 from piper import PiperVoice, SynthesisConfig
 
-from content import CHAPTERS, spoken
+import importlib
+import os
+_C = importlib.import_module(os.environ.get("CONTENT", "content"))  # content oder content_short
+CHAPTERS, spoken = _C.CHAPTERS, _C.spoken
 
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build"
+BUILD = ROOT / os.environ.get("BUILD", "build")
 BUILD.mkdir(exist_ok=True)
 MODEL = sys.argv[1] if len(sys.argv) > 1 else str(ROOT / "voices" / "de_DE-thorsten-high.onnx")
 
 LENGTH_SCALE = float(sys.argv[2]) if len(sys.argv) > 2 else 1.1
-LEAD_IN = 0.5          # Stille am Anfang
-SENT_GAP = 0.45        # Pause zwischen Sätzen
-CHAPTER_GAP = 1.10     # Pause zwischen Kapiteln
-TAIL = 12.0            # Stille am Ende (Endkarte)
+LEAD_IN = float(os.environ.get("LEAD_IN", 0.5))          # Stille am Anfang
+SENT_GAP = float(os.environ.get("SENT_GAP", 0.45))        # Pause zwischen Sätzen
+CHAPTER_GAP = float(os.environ.get("CHAPTER_GAP", 1.10))     # Pause zwischen Kapiteln
+TAIL = float(os.environ.get("TAIL", 12.0))            # Stille am Ende (Endkarte)
 
 voice = PiperVoice.load(MODEL, include_alignments=True)
 if "\u0327" not in voice.config.phoneme_id_map:

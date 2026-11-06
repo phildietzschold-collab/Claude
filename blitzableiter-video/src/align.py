@@ -16,10 +16,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from content import CHAPTERS
+import importlib
+import os
+CHAPTERS = importlib.import_module(os.environ.get("CONTENT", "content")).CHAPTERS
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build"
+BUILD = ROOT / os.environ.get("BUILD", "build")
 MP3 = Path(sys.argv[1]) if len(sys.argv) > 1 else BUILD / "sprache.mp3"
 
 
