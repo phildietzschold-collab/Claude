@@ -257,6 +257,22 @@ def statics():
         vc.paint()
 
 
+def camera(ctx, t, c):
+    """Langsamer Zoom + Schwenk pro Szene, kurzer Zoom-Effekt beim Kapitelwechsel."""
+    i = CH.index(c)
+    span = max(c["b"] - c["a"], 1.0)
+    p = ease_io(clamp((t - c["a"]) / span))
+    zoom = 1.0 + 0.045 * p
+    if c["a"] > 0:
+        zoom += 0.07 * (1 - ease(prog(t, c["a"] - 0.1, 0.8)))
+    direction = 1 if i % 2 == 0 else -1
+    dx = direction * 22 * p  # bleibt kleiner als der Zoom-Überstand -> keine Ränder
+    cx, cy = 960, 470
+    ctx.translate(cx + dx, cy)
+    ctx.scale(zoom, zoom)
+    ctx.translate(-cx, -cy)
+
+
 def render_frame(ctx, t):
     statics()
     ctx.set_source_surface(_BG)
@@ -274,6 +290,8 @@ def render_frame(ctx, t):
     WX.draw_clouds(ctx, t, fl, min(sky, 1))
     WX.draw_rain(ctx, t, min(rain, 1))
     for c, a in act:
+        ctx.save()
+        camera(ctx, t, c)
         if a >= 0.999:
             c["scene"].draw(ctx, t)
         else:
@@ -281,6 +299,7 @@ def render_frame(ctx, t):
             c["scene"].draw(ctx, t)
             ctx.pop_group_to_source()
             ctx.paint_with_alpha(a)
+        ctx.restore()
     if fl > 0.01:
         ctx.set_source_rgba(0.85, 0.9, 1.0, 0.36 * fl)
         ctx.paint()

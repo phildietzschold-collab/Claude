@@ -85,7 +85,6 @@ class Intro(Scene):
             pulse = 0.6 + 0.4 * math.sin(t * 8)
             circle(ctx, tip[0], tip[1] + 40, 60, YEL, 0.10 * ag * pulse)
             line(ctx, [tip, hs["apex"]], YEL, ag, 8)
-            text(ctx, "dünne Metallstange", tip[0] + 300, tip[1] - 20, 38, YEL, ag)
             arrow(ctx, tip[0] + 150, tip[1] - 12, tip[0] + 30, tip[1] + 10, YEL, ag, 5, 18)
         strike(ctx, t, self.t_hit, self.b_hit, w=7)
         fa = fade(t, self.t_hit + 0.12, self.t_hit + 2.6, 0.1, 0.6)
@@ -153,8 +152,14 @@ class K1(Scene):
                     circle(ctx, x, y, 9, BLUE, ap)
             a_l = fade(t, c.w(1, "Eis"), c.s(2) + 0.3)
             if a_l > 0:
-                badge(ctx, "Eis", 420, 260, 36, WHITE, a=a_l)
-                badge(ctx, "Wassertropfen", 1530, 260, 36, (0.6, 0.78, 1), a=fade(t, c.w(1, "Wasser"), c.s(2) + 0.3))
+                fill_rrect(ctx, 250, 215, 120, 90, 20, (0, 0, 0), 0.5 * a_l)
+                for k in range(3):
+                    an = k * math.pi / 3 + t
+                    line(ctx, [(310 - 22 * math.cos(an), 260 - 22 * math.sin(an)), (310 + 22 * math.cos(an), 260 + 22 * math.sin(an))], WHITE, a_l, 5)
+                aw_ = fade(t, c.w(1, "Wasser"), c.s(2) + 0.3)
+                fill_rrect(ctx, 1550, 215, 120, 90, 20, (0, 0, 0), 0.5 * aw_)
+                circle(ctx, 1610, 262, 18, BLUE, aw_)
+                poly(ctx, [(1610, 226), (1594, 254), (1626, 254)], BLUE, aw_)
         # Ladungen
         ach = fade(t, c.s(2) + 0.3)
         if ach > 0:
@@ -168,8 +173,6 @@ class K1(Scene):
                 x, y = lerp(p0[0], p1[0], k), lerp(p0[1], p1[1], k)
                 circle(ctx, x, y, 17, (0.3, 0.5, 0.98), ach)
                 line(ctx, [(x - 8, y), (x + 8, y)], WHITE, ach, 4)
-            text(ctx, "positiv", 1470, 180, 40, (1, 0.5, 0.45), fade(t, c.w(2, "positiv")))
-            text(ctx, "negativ", 1470, 470, 40, (0.55, 0.72, 1), fade(t, c.w(2, "negativ")))
         # Spannung
         av = fade(t, c.s(3) + 0.2, c.s(7))
         if av > 0:
@@ -209,7 +212,6 @@ class K1(Scene):
             for i in range(4):
                 r = 40 + ((t - c.w(8, "Donner")) * 260 + i * 90) % 360
                 ring(ctx, 1122, 650, r, WHITE, ad * max(0, 1 - r / 380) * 0.8, 5)
-            badge(ctx, "Donner", 760, 660, 46, WHITE, a=ad, scale=pop(prog(t, c.w(8, "Donner"), 0.5)))
 
 
 # =====================================================================
@@ -351,11 +353,10 @@ class K3(Scene):
                 line(ctx, poly_part(cable, fk), (0.85, 0.6, 0.35), ap, 5)
                 if fk >= 1:
                     ground_symbol(ctx, hs["x1"] + 30, 690, 50, YEL, ap, 5)
-            items = [("spitze Metallstange", c.w(2, "spitze")), ("Kabel", c.w(2, "Kabel")), ("sicher in die Erde", c.w(2, "Erde"))]
-            for i, (s, t0) in enumerate(items):
-                a_ = fade(t, t0 - 0.05, c.s(3) + 0.3)
-                if a_ > 0:
-                    badge(ctx, s, 1400, 330 + i * 95, 38, YEL if i != 1 else WHITE, a=a_, scale=pop(prog(t, t0 - 0.05, 0.4)))
+            # Spitze der Stange leuchtet bei "spitze"
+            ag_ = fade(t, c.w(2, "spitze") - 0.05, c.s(3))
+            if ag_ > 0:
+                circle(ctx, hx + 4, hy - 150, 26 * pop(prog(t, c.w(2, "spitze") - 0.05, 0.4)), YEL, 0.35 * ag_)
         # Niemand wusste ...
         aw = fade(t, c.s(3), c.s(4) + 0.2)
         if aw > 0:
@@ -507,7 +508,6 @@ class K5(Scene):
         if a4 > 0:
             sc = pop(prog(t, c.s(4) - 0.1, 0.5))
             text(ctx, "=", 960, 640, 130, WHITE, a4, scale=sc)
-            badge(ctx, "nicht gefährdeter", 960, 520, 36, WHITE, GREEN, a4, 0.9, scale=sc)
         # sicherer Weg
         if not hasattr(self, "bolt"):
             self.bolt = bolt_points(520, -20, tip[0], tip[1] - 16, seed=13)
@@ -515,7 +515,6 @@ class K5(Scene):
         af = fade(t, self.t_hit + 0.12, c.s(6), 0.1, 0.5)
         if af > 0:
             flow(ctx, path, t, YEL, af, 7, f=ease(prog(t, self.t_hit + 0.12, 0.7)))
-            badge(ctx, "sicherer Weg", 260, 560, 36, INK, YEL, af * fade(t, c.w(5, "Weg") - 0.2), 0.95)
         # Name
         an = fade(t, c.s(6) - 0.1)
         if an > 0:
@@ -586,7 +585,6 @@ class K6(Scene):
                 ctx.set_dash([18, 14])
                 ring(ctx, 370, 320, r, BLUE, afd * (1 - r / 700) * 0.8, 4)
                 ctx.restore()
-            badge(ctx, "elektrische & magnetische Felder", 960, 205, 34, (0.7, 0.82, 1), a=fade(t, c.w(1, "Felder") - 0.6, c.s(3)))
         # Möbel & Geräte
         tvx, tvy, tvw, tvh = self.devices["Fernseher"]
         fill_rrect(ctx, tvx - 40, 640, tvw + 80, 110, 8, (0.22, 0.16, 0.13), a)
@@ -636,7 +634,6 @@ class K6(Scene):
                 if amp > 2:
                     pts = [(x - 50, 760), (x - 20, 760), (x - 8, 760 - amp), (x + 4, 760 + amp * 0.3), (x + 16, 760), (x + 50, 760)]
                     glow_line(ctx, pts, RED, sa, 5)
-            text(ctx, "Spannungsspitze", 450, 680, 32, (1, 0.6, 0.55), fade(t, c.w(2, "Spannungsspitzen") - 0.1, c.s(4)))
         # Geräte in Gefahr / geschützt
         for name, (x, y, w_, h_) in self.devices.items():
             t0 = c.w(3, name)
@@ -802,9 +799,6 @@ class K8(Scene):
             check(ctx, 402, y, 50, GREEN, a, 10, f=ease(prog(t, t0 + 0.35, 0.4)))
             self.icon(ctx, i, 510, y, a)
             text(ctx, s, 590, y, 38, WHITE, a, align="l", scale=1)
-        a4 = fade(t, c.w(4, "Elektronik") - 0.2)
-        badge(ctx, "sicherster Schutz für Elektronik", 960, 730, 34, INK, YEL, a4, 0.95,
-              scale=pop(prog(t, c.w(4, "Elektronik") - 0.2, 0.45)))
 
 
 # =====================================================================
@@ -817,7 +811,7 @@ class Outro(Scene):
 
     def draw(self, ctx, t):
         c = self.c
-        a_main = fade(t, c.s(0) - 0.4, c.s(3) - 0.1, 0.4, 0.4)
+        a_main = fade(t, c.s(0) - 0.9, c.s(3) - 0.1, 0.4, 0.4)
         if a_main > 0:
             a = a_main * fade(t, c.w(0, "keine") - 0.1)
             if a > 0:
@@ -828,9 +822,11 @@ class Outro(Scene):
             steps = [("Fangen", c.w(1, "Fangen")), ("Ableiten", c.w(1, "Ableiten")), ("Erden", c.w(1, "Erden"))]
             for i, (s, t0) in enumerate(steps):
                 aa = a_main * fade(t, t0 - 0.15)
+                x, y = 560 + i * 400, 470
+                if aa < 1:  # Platzhalter: drei leere Kreise ab Szenenbeginn
+                    ring(ctx, x, y, 115, WHITE, a_main * 0.22 * (1 - aa), 4)
                 if aa <= 0:
                     continue
-                x, y = 560 + i * 400, 470
                 sc = pop(prog(t, t0 - 0.15, 0.5))
                 circle(ctx, x, y, 115 * sc, (0.04, 0.05, 0.1), aa * 0.85)
                 ring(ctx, x, y, 115 * sc, YEL, aa, 6)
@@ -855,17 +851,17 @@ class Outro(Scene):
         if ae > 0:
             sc = pop(prog(t, c.s(3) - 0.1, 0.7))
             pulse = 0.85 + 0.15 * math.sin(t * 4)
-            circle(ctx, 960, 360, 190 * sc, YEL, 0.08 * ae * pulse)
-            circle(ctx, 960, 360, 145 * sc, (0.04, 0.05, 0.1), ae)
-            ring(ctx, 960, 360, 145 * sc, YEL, ae, 8)
-            bolt_icon(ctx, 960, 360, 190 * sc, YEL, ae)
-            text(ctx, "Wie funktioniert ein Blitzableiter?", 960, 590, 52, WHITE, ae, scale=sc)
-            text(ctx, "Wissen, kurz erklärt", 960, 655, 38, (0.8, 0.85, 0.95), ae * fade(t, c.w(3, "Wissen") - 0.1),
+            circle(ctx, 960, 250, 140 * sc, YEL, 0.08 * ae * pulse)
+            circle(ctx, 960, 250, 105 * sc, (0.04, 0.05, 0.1), ae)
+            ring(ctx, 960, 250, 105 * sc, YEL, ae, 7)
+            bolt_icon(ctx, 960, 250, 140 * sc, YEL, ae)
+            text(ctx, "Wie funktioniert ein Blitzableiter?", 960, 425, 52, WHITE, ae, scale=sc)
+            text(ctx, "Wissen, kurz erklärt", 960, 485, 38, (0.8, 0.85, 0.95), ae * fade(t, c.w(3, "Wissen") - 0.1),
                  weight="normal")
             al = fade(t, c.w(3, "Like") - 0.15)
             ab = fade(t, c.w(3, "abonniere") - 0.15)
-            badge(ctx, "LIKE", 820, 760, 40, INK, YEL, al, 1, scale=pop(prog(t, c.w(3, "Like") - 0.15, 0.45)))
-            badge(ctx, "ABONNIEREN", 1060, 760, 40, WHITE, RED, ab, 1, scale=pop(prog(t, c.w(3, "abonniere") - 0.15, 0.45)))
+            badge(ctx, "LIKE", 820, 575, 40, INK, YEL, al, 1, scale=pop(prog(t, c.w(3, "Like") - 0.15, 0.45)))
+            badge(ctx, "ABONNIEREN", 1060, 575, 40, WHITE, RED, ab, 1, scale=pop(prog(t, c.w(3, "abonniere") - 0.15, 0.45)))
 
 
 SCENES = {"intro": Intro, "k1": K1, "k2": K2, "k3": K3, "k4": K4, "k5": K5, "k6": K6, "k7": K7, "k8": K8, "outro": Outro}

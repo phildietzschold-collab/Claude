@@ -17,21 +17,22 @@ from piper import PiperVoice, SynthesisConfig
 
 from content import CHAPTERS, spoken
 
-# Die ältere Thorsten-Stimme erwartet zusammengesetzte Zeichen (z. B. "ç" für den ich-Laut).
-pe.unicodedata = types.SimpleNamespace(normalize=lambda form, s: unicodedata.normalize("NFC", s))
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 BUILD.mkdir(exist_ok=True)
-MODEL = sys.argv[1] if len(sys.argv) > 1 else str(ROOT / "voices" / "de-thorsten-low.onnx")
+MODEL = sys.argv[1] if len(sys.argv) > 1 else str(ROOT / "voices" / "de_DE-thorsten-high.onnx")
 
-LENGTH_SCALE = float(sys.argv[2]) if len(sys.argv) > 2 else 1.22
-LEAD_IN = 1.0          # Stille am Anfang
-SENT_GAP = 0.55        # Pause zwischen Sätzen
-CHAPTER_GAP = 2.30     # Pause zwischen Kapiteln
-TAIL = 4.5             # Stille am Ende (Endkarte)
+LENGTH_SCALE = float(sys.argv[2]) if len(sys.argv) > 2 else 1.1
+LEAD_IN = 0.5          # Stille am Anfang
+SENT_GAP = 0.45        # Pause zwischen Sätzen
+CHAPTER_GAP = 1.10     # Pause zwischen Kapiteln
+TAIL = 12.0            # Stille am Ende (Endkarte)
 
 voice = PiperVoice.load(MODEL, include_alignments=True)
+if "\u0327" not in voice.config.phoneme_id_map:
+    # Ältere Stimmen erwarten zusammengesetzte Zeichen (z. B. "ç" für den ich-Laut).
+    pe.unicodedata = types.SimpleNamespace(normalize=lambda form, s: unicodedata.normalize("NFC", s))
 SR = voice.config.sample_rate
 cfg = SynthesisConfig(length_scale=LENGTH_SCALE, normalize_audio=False, noise_scale=0.6, noise_w_scale=0.8)
 
