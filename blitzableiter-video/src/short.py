@@ -19,15 +19,16 @@ from pathlib import Path
 import cairo
 
 import gfx
-from content_short import CHAPTERS
+import importlib
+CHAPTERS = importlib.import_module(os.environ.get("CONTENT", "content_short")).CHAPTERS
 from gfx import *  # noqa: F401,F403
 from scenes import Cue, Scene
 
 SW, SH = 1080, 1920
 gfx.W, gfx.H = SW, SH  # Wetter/Boden zeichnen im Hochformat
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build_short"
-FINAL = ROOT / "Short_Blitzableiter.mp4"
+BUILD = ROOT / os.environ.get("BUILD", "build_short")
+FINAL = ROOT / os.environ.get("OUT", "Short_Blitzableiter.mp4")
 SCENE_MODULE = sys.modules[__name__]
 
 T = json.load(open(BUILD / "timing.json"))
@@ -226,6 +227,9 @@ class Fazit(Scene):
 
 
 SCENES = {"hook": Hook, "teile": Teile, "irrtum": Irrtum, "fazit": Fazit}
+if os.environ.get("SHORT_SCENES"):  # z. B. scenes_auto für ein anderes Thema
+    SCENE_MODULE = importlib.import_module(os.environ["SHORT_SCENES"])
+    SCENES = SCENE_MODULE.SCENES
 
 # ---------------- Kapitel-Fenster ----------------
 CH = []
@@ -363,10 +367,10 @@ def draw_header(ctx, t, c):
         return
     slide = (1 - ease(prog(t, c["a"] + 0.1, 0.45))) * -60
     m = c["meta"]
-    if m["label"] is None:  # Hook: großer Titel
-        set_font(ctx, 112)
-        for i, (s, col) in enumerate((("ZIEHT ER", WHITE), ("BLITZE AN?", YEL))):
-            text(ctx, s, 540, 240 + i * 125 + slide, 112, col, a, stroke=(0, 0, 0), sw=18)
+    if m["label"] is None:  # Hook: großer Titel (leer = keine Kopfzeile)
+        lines = m.get("hook_title", [("ZIEHT ER", "w"), ("BLITZE AN?", "y")])
+        for i, (s, col) in enumerate(lines):
+            text(ctx, s, 540, 240 + i * 125 + slide, 112, YEL if col == "y" else WHITE, a, stroke=(0, 0, 0), sw=18)
         return
     lab = f"{m['label']}  |  {m['title'].upper()}"
     w = text_w(ctx, lab, 44) + 110

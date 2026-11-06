@@ -2,3 +2,4 @@ build/
 __pycache__/
 voices/*.onnx
 build_short/
+build_auto/

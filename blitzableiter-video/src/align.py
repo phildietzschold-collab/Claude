@@ -38,7 +38,7 @@ def silences(path, noise="-40dB", d=0.22):
     return list(zip(st, en)), dur
 
 
-sil, total = silences(MP3)
+sil, total = silences(MP3, d=float(os.environ.get("SIL_D", 0.22)))
 # Sprachbereich: nach der ersten Stille bis vor die letzte
 speech_start = sil[0][1] if sil and sil[0][0] < 0.05 else 0.0
 speech_end = sil[-1][0] if sil and sil[-1][1] >= total - 0.05 else total
