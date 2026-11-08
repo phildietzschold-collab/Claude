@@ -113,10 +113,21 @@ class BatchTests(unittest.TestCase):
         done = self.dir / "uploaded"
         self.assertTrue((done / "clip.mp4").exists())
         self.assertTrue((done / "clip.jpg").exists())
-        result = json.loads((done / "clip.json").read_text(encoding="utf-8"))
+        self.assertTrue((done / "clip.json").exists())
+        result = json.loads((done / "clip.ergebnis.json").read_text(encoding="utf-8"))
         self.assertEqual(result["url"], "https://youtu.be/VID123")
         self.assertFalse((self.dir / "clip.mp4").exists())
         self.assertTrue((self.dir / "ohne_json.mp4").exists())  # unangetastet
+
+    def test_txt_metadata(self):
+        (self.dir / "clip.mp4").write_bytes(b"v")
+        (self.dir / "clip.txt").write_text("Mein Titel\n\nBeschreibung", encoding="utf-8")
+        with mock.patch.object(upload, "build_service"), \
+             mock.patch.object(upload, "upload_video", return_value="V") as up:
+            with self.assertRaises(SystemExit):
+                upload.main(["batch", str(self.dir)])
+        self.assertEqual(up.call_args.args[2].title, "Mein Titel")
+        self.assertTrue((self.dir / "uploaded" / "clip.txt").exists())
 
     def test_dry_run_uploads_nothing(self):
         self._add("clip", {"title": "Clip"})

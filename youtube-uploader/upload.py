@@ -6,6 +6,7 @@ Befehle:
     python upload.py upload VIDEO.mp4 --title "..." --description "..."
     python upload.py batch videos/             # lädt jedes VIDEO.mp4 mit passender VIDEO.json hoch
     python upload.py batch videos/ --dry-run   # prüft nur, lädt nichts hoch
+    python upload.py drive                     # holt Videos aus dem Drive-Ordner "YouTube-Upload" (iPad)
 """
 from __future__ import annotations
 
@@ -20,7 +21,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/drive",  # für den iPad-Weg über Google Drive
+]
 HERE = Path(__file__).resolve().parent
 DEFAULT_CLIENT_SECRET = HERE / "client_secret.json"
 DEFAULT_TOKEN = HERE / "token.json"
@@ -112,6 +116,77 @@ class VideoMeta:
         if self.publish_at:
             status["publishAt"] = self.publish_at
         return {"snippet": snippet, "status": status}
+
+
+# Deutsche und englische Schlüssel für den Text-Modus.
+TEXT_KEYS = {
+    "tags": "tags",
+    "privacy": "privacy", "sichtbarkeit": "privacy",
+    "publish_at": "publish_at", "termin": "publish_at",
+    "playlist": "playlist_id", "playlist_id": "playlist_id",
+    "kategorie": "category_id", "category_id": "category_id",
+    "sprache": "language", "language": "language",
+    "kinder": "made_for_kids", "made_for_kids": "made_for_kids",
+    "thumbnail": "thumbnail",
+}
+PRIVACY_WORDS = {
+    "privat": "private", "private": "private",
+    "nicht gelistet": "unlisted", "ungelistet": "unlisted", "unlisted": "unlisted",
+    "öffentlich": "public", "oeffentlich": "public", "public": "public",
+}
+YES = {"ja", "yes", "true", "1"}
+
+
+def parse_text_meta(text: str) -> dict:
+    """Einfaches Format, das man auf dem iPad gut tippen kann:
+
+        Titel in der ersten Zeile
+
+        Alles danach ist die Beschreibung.
+        ---
+        tags: tag1, tag2
+        sichtbarkeit: öffentlich
+        termin: 2026-11-15T17:00:00Z
+
+    Der Block nach der letzten Zeile '---' ist optional.
+    """
+    lines = text.replace("﻿", "").replace("\r\n", "\n").split("\n")
+    settings: dict = {}
+    sep = max((i for i, line in enumerate(lines) if line.strip() == "---"), default=None)
+    if sep is not None:
+        candidate, ok = {}, True
+        for line in lines[sep + 1:]:
+            if not line.strip():
+                continue
+            key, colon, value = line.partition(":")
+            key = key.strip().lower()
+            if not colon or key not in TEXT_KEYS:
+                ok = False  # kein Einstellungsblock, sondern Teil der Beschreibung
+                break
+            candidate[TEXT_KEYS[key]] = value.strip()
+        if ok:
+            settings, lines = candidate, lines[:sep]
+
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if not lines:
+        raise MetadataError("Text ist leer – erste Zeile muss der Titel sein")
+    data: dict = {"title": lines[0].strip(), "description": "\n".join(lines[1:]).strip()}
+
+    if "tags" in settings:
+        settings["tags"] = [t.strip() for t in settings["tags"].split(",") if t.strip()]
+    if "privacy" in settings:
+        word = settings["privacy"].lower()
+        if word not in PRIVACY_WORDS:
+            raise MetadataError(f"Unbekannte Sichtbarkeit '{settings['privacy']}' (privat/nicht gelistet/öffentlich)")
+        settings["privacy"] = PRIVACY_WORDS[word]
+    if "made_for_kids" in settings:
+        settings["made_for_kids"] = settings["made_for_kids"].lower() in YES
+    data.update(settings)
+    if data.get("publish_at") and "privacy" not in settings:
+        data["privacy"] = "private"  # geplante Videos müssen bis zum Termin privat sein
+    return data
+
 
 
 # ---------------------------------------------------------------- Login
@@ -253,20 +328,22 @@ def cmd_upload(args) -> None:
 
 
 def find_jobs(folder: Path) -> list[tuple[Path, Path]]:
-    """Paare aus Video + gleichnamiger .json, z. B. clip.mp4 + clip.json."""
+    """Paare aus Video + gleichnamiger .json oder .txt, z. B. clip.mp4 + clip.json."""
     jobs = []
     for video in sorted(folder.iterdir()):
         if video.suffix.lower() in VIDEO_EXTENSIONS:
-            meta_file = video.with_suffix(".json")
-            if meta_file.exists():
+            meta_file = next((video.with_suffix(e) for e in (".json", ".txt")
+                              if video.with_suffix(e).exists()), None)
+            if meta_file:
                 jobs.append((video, meta_file))
             else:
-                print(f"Übersprungen (keine {meta_file.name}): {video.name}")
+                print(f"Übersprungen (keine {video.stem}.json/.txt): {video.name}")
     return jobs
 
 
 def load_meta(video: Path, meta_file: Path) -> VideoMeta:
-    data = json.loads(meta_file.read_text(encoding="utf-8"))
+    text = meta_file.read_text(encoding="utf-8")
+    data = json.loads(text) if meta_file.suffix == ".json" else parse_text_meta(text)
     if "thumbnail" not in data:
         for ext in THUMBNAIL_EXTENSIONS:
             candidate = video.with_suffix(ext)
@@ -289,7 +366,7 @@ def cmd_batch(args) -> None:
     for video, meta_file in jobs:
         try:
             planned.append((video, meta_file, load_meta(video, meta_file)))
-        except (MetadataError, json.JSONDecodeError, TypeError) as exc:
+        except (MetadataError, json.JSONDecodeError, TypeError, UnicodeDecodeError) as exc:
             print(f"FEHLER in {meta_file.name}: {exc}")
             failed += 1
 
@@ -309,16 +386,21 @@ def cmd_batch(args) -> None:
             failed += 1
             continue
         # Erledigtes wegräumen, damit es beim nächsten Lauf nicht doppelt hochgeht.
-        result = json.loads(meta_file.read_text(encoding="utf-8"))
-        result["video_id"] = video_id
-        result["url"] = f"https://youtu.be/{video_id}"
-        result["uploaded_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
-        (done_dir / meta_file.name).write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-        meta_file.unlink()
+        result = {"title": meta.title, "video_id": video_id, "url": f"https://youtu.be/{video_id}",
+                  "uploaded_at": datetime.now().astimezone().isoformat(timespec="seconds")}
+        (done_dir / f"{video.stem}.ergebnis.json").write_text(
+            json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+        shutil.move(str(meta_file), done_dir / meta_file.name)
         shutil.move(str(video), done_dir / video.name)
         if meta.thumbnail and (video.parent / meta.thumbnail).exists():
             shutil.move(str(video.parent / meta.thumbnail), done_dir / Path(meta.thumbnail).name)
     sys.exit(1 if failed else 0)
+
+
+def cmd_drive(args) -> None:
+    import drive_inbox
+
+    sys.exit(1 if drive_inbox.run(Path(args.token), args.folder) else 0)
 
 
 # ---------------------------------------------------------------- CLI
@@ -352,6 +434,10 @@ def main(argv: list[str] | None = None) -> None:
     p_batch.add_argument("folder", nargs="?", default=str(HERE / "videos"))
     p_batch.add_argument("--dry-run", action="store_true", help="Nur prüfen, nichts hochladen")
     p_batch.set_defaults(func=cmd_batch)
+
+    p_drive = sub.add_parser("drive", help="Videos aus einem Google-Drive-Ordner hochladen (z. B. vom iPad)")
+    p_drive.add_argument("--folder", help="Name des Drive-Ordners (Standard: YouTube-Upload)")
+    p_drive.set_defaults(func=cmd_drive)
 
     args = parser.parse_args(argv)
     args.func(args)
