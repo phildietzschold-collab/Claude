@@ -1,0 +1,7 @@
+# Zugangsdaten – niemals committen
+client_secret*.json
+token.json
+# Videos gehören nicht ins Git-Repo
+videos/*
+!videos/BEISPIEL.json
+__pycache__/
